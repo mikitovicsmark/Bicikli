@@ -455,6 +455,50 @@ public:
 	};
 };
 
+class BezierSurface {
+
+	std::vector<vec4> cps;
+	int size = 5;
+
+	float B(int i, double tt, int m) {
+		float Bi = 1.0;
+		for (int j = 1; j <= i; j++) {
+			Bi *= tt * (m - j) / j;
+			for (; j < m; j++) {
+				Bi *= (1 - tt);
+			}
+		}
+
+		return Bi;
+	}
+
+public:
+	BezierSurface() {
+		float heights[] = {
+			0, 0, 1, 3, 5,
+			1, 1, 1, 3, 3,
+			3, 3, 3, 1, 1,
+			3, 5, 3, 1, 0,
+			3, 3, 3, 1, 0,
+		};
+		float step = 1 / size;
+		for (int i = 0; i < size; i++) {
+			for (int j = 0; j < size; j++)
+			{
+				vec4 cp = vec4((1 - i*step), (1 - j*step), heights[i*size + j], 1);
+				cps.push_back(cp);
+			}
+		}
+	}
+	vec4 Interpolate(double tt) {
+		double Bi = 1.0;
+		vec4 rr(0, 0, 0);
+		for (int i = 0; i < cps.size(); i++)
+			rr += cps[i] * B(i, tt, cps.size());
+		return rr;
+	}
+};
+
 // The virtual world: collection of two objects
 LagrangeCurve lagrangeCurve;
 
