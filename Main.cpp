@@ -411,7 +411,7 @@ public:
 		res.clear();
 		nRes = 0;
 		if (cps.size() > 1) {
-			for (int i = 0; i < cps.size() - 1; i++) {
+			for (int i = 1; i < cps.size(); i++) {
 				for (int j = 0; j < 100; j++) {
 					vec4 tmp = Interpolate(i + 0.01*j);
 					res.push_back(tmp.v[0]); //x
