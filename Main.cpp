@@ -411,7 +411,7 @@ public:
 		res.clear();
 		nRes = 0;
 		if (cps.size() > 1) {
-			for (int i = 1; i < cps.size() - 1; i++) {
+			for (int i = 0; i < cps.size() - 1; i++) {
 				for (int j = 0; j < 100; j++) {
 					vec4 tmp = Interpolate(i + 0.01*j);
 					res.push_back(tmp.v[0]); //x
@@ -456,8 +456,6 @@ public:
 };
 
 // The virtual world: collection of two objects
-//Triangle triangle;
-LineStrip lineStrip;
 LagrangeCurve lagrangeCurve;
 
 // Initialization, create an OpenGL context
@@ -466,7 +464,6 @@ void onInitialization() {
 
 	// Create objects by setting up their vertex data on the GPU
 	lagrangeCurve.Create();
-	lineStrip.Create();
 	//triangle.Create();
 
 	// Create vertex shader from string
@@ -519,7 +516,6 @@ void onDisplay() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the screen
 
 	//triangle.Draw();
-	lineStrip.Draw();
 	lagrangeCurve.Draw();
 	glutSwapBuffers();									// exchange the two buffers
 }
@@ -539,7 +535,6 @@ void onMouse(int button, int state, int pX, int pY) {
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {  // GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON and GLUT_DOWN / GLUT_UP
 		float cX = 2.0f * pX / windowWidth - 1;	// flip y axis
 		float cY = 1.0f - 2.0f * pY / windowHeight;
-		lineStrip.AddPoint(cX, cY);
 		lagrangeCurve.AddControlPoint(cX, cY);
 		glutPostRedisplay();     // redraw
 	}
