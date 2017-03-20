@@ -460,16 +460,21 @@ class BezierSurface {
 	std::vector<vec4> cps;
 	int size = 5;
 
-	float B(int i, double tt, int m) {
-		float Bi = 1.0;
-		for (int j = 1; j <= i; j++) {
-			Bi *= tt * (m - j) / j;
-			for (; j < m; j++) {
-				Bi *= (1 - tt);
-			}
+	int factorial(int n)
+	{
+		if (n > 1) {
+			return n * factorial(n - 1);
+		} else {
+			return 1;
 		}
+	}
 
-		return Bi;
+	float kCombination(float n, float k) {
+		return factorial(n) / (factorial(k) * (factorial(n - k)));
+	}
+
+	float B(int n, int i, float u) {
+		return kCombination(n, i) * pow(u, i) * pow(1 - u, n - i);
 	}
 
 public:
@@ -490,13 +495,16 @@ public:
 			}
 		}
 	}
-	vec4 Interpolate(double tt) {
-		double Bi = 1.0;
+	vec4 Interpolate(float u, float v) {
 		vec4 rr(0, 0, 0);
-		for (int i = 0; i < cps.size(); i++)
-			rr += cps[i] * B(i, tt, cps.size());
+		for (int i = 0; i < size; i++) {
+			for (int j = 0; j < size; j++) {
+				rr += cps[i*size + j] * B(size, i, u) * B(size, j, v);
+			}
+		}
 		return rr;
-	}
+	}
+
 };
 
 // The virtual world: collection of two objects
