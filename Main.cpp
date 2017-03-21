@@ -1,11 +1,11 @@
-//=============================================================================================
+ï»¿//=============================================================================================
 // Szamitogepes grafika hazi feladat keret. Ervenyes 2017-tol.
 // A //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // sorokon beluli reszben celszeru garazdalkodni, mert a tobbit ugyis toroljuk.
 // A beadott program csak ebben a fajlban lehet, a fajl 1 byte-os ASCII karaktereket tartalmazhat.
 // Tilos:
 // - mast "beincludolni", illetve mas konyvtarat hasznalni
-// - faljmuveleteket vegezni a printf-et kivéve
+// - faljmuveleteket vegezni a printf-et kivÃ©ve
 // - new operatort hivni a lefoglalt adat korrekt felszabaditasa nelkul
 // - felesleges programsorokat a beadott programban hagyni
 // - felesleges kommenteket a beadott programba irni a forrasmegjelolest kommentjeit kiveve
@@ -18,7 +18,7 @@
 //
 // NYILATKOZAT
 // ---------------------------------------------------------------------------------------------
-// Nev    : Mikitovics Márk
+// Nev    : Mikitovics MÃ¡rk
 // Neptun : I3L1O7
 // ---------------------------------------------------------------------------------------------
 // ezennel kijelentem, hogy a feladatot magam keszitettem, es ha barmilyen segitseget igenybe vettem vagy
@@ -367,7 +367,7 @@ class LagrangeCurve {
 	std::vector<vec4> cps;		// interleaved data of coordinates and colors
 	std::vector<float> ts;			// parameter (knot) values
 	std::vector<float> res; // all points
-	int nRes;
+	int nRes = 0;
 
 	float L(int i, float t) {
 		float Li = 1.0f;
@@ -379,9 +379,6 @@ class LagrangeCurve {
 		return Li;
 	}
 public:
-	LagrangeCurve() {
-		nRes = 0;
-	}
 	void Create() {
 		glGenVertexArrays(1, &vao);
 		glBindVertexArray(vao);
@@ -456,7 +453,13 @@ public:
 };
 
 class BezierSurface {
-
+	float heights[25] = {
+		0, 0, 0.1f, 0.3f, 0.5f,
+		0.1f, 0.1f, 0.1f, 0.3f, 0.3f,
+		0.3f, 0.3f, 0.3f, 0.1f, 0.1f,
+		0.3f, 0.5f, 0.3f, 0.1f, 0,
+		0.3f, 0.3f, 0.3f, 0.1f, 0,
+	};
 	std::vector<vec4> cps;
 	int size = 5;
 
@@ -469,45 +472,49 @@ class BezierSurface {
 		}
 	}
 
-	float kCombination(float n, float k) {
+	int kCombination(int n, int k) {
 		return factorial(n) / (factorial(k) * (factorial(n - k)));
 	}
 
 	float B(int n, int i, float u) {
-		return kCombination(n, i) * pow(u, i) * pow(1 - u, n - i);
+		return (float)kCombination(n, i) * pow(u, i) * pow(1 - u, n - i);
 	}
 
 public:
-	BezierSurface() {
-		float heights[] = {
-			0, 0, 1, 3, 5,
-			1, 1, 1, 3, 3,
-			3, 3, 3, 1, 1,
-			3, 5, 3, 1, 0,
-			3, 3, 3, 1, 0,
-		};
-		float step = 1 / size;
+	void Create() {
+		// adding control points
+		float step = 0.5f;
 		for (int i = 0; i < size; i++) {
 			for (int j = 0; j < size; j++)
 			{
-				vec4 cp = vec4((1 - i*step), (1 - j*step), heights[i*size + j], 1);
+				vec4 cp = vec4((-1 + j*step), (1 - i*step), heights[i*size + j], 1);
 				cps.push_back(cp);
 			}
 		}
+		// calculating points every 50m
+		float distance = 0.1f;
+		for (int i = 0; i < 21; i++) {
+			for (int j = 0; j < 21; j++) {
+				float tmp = weight((-1 + j*distance), (1 - i*distance));
+				printf("x: %f, y: %f, z: %f\n", (-1 + j*distance), (1 - i*distance), tmp);
+			}
+			printf("\n\n\n");
+		}
 	}
-	vec4 Interpolate(float u, float v) {
-		vec4 rr(0, 0, 0);
+	float weight(float u, float v) {
+		float r = 0;
 		for (int i = 0; i < size; i++) {
 			for (int j = 0; j < size; j++) {
-				rr += cps[i*size + j] * B(size, i, u) * B(size, j, v);
+				r += cps[i*size + j].v[2] * B(size, i, u) * B(size, j, v);
 			}
 		}
-		return rr;
+		return r;
 	}
 
 };
 
 // The virtual world: collection of two objects
+BezierSurface bezierSurface;
 LagrangeCurve lagrangeCurve;
 
 // Initialization, create an OpenGL context
@@ -516,7 +523,7 @@ void onInitialization() {
 
 	// Create objects by setting up their vertex data on the GPU
 	lagrangeCurve.Create();
-	//triangle.Create();
+	bezierSurface.Create();
 
 	// Create vertex shader from string
 	unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
