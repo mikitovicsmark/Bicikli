@@ -246,7 +246,7 @@ public:
 		Animate(0);
 	}
 
-	void Create() {
+	void Create(vec4 a, vec4 b, vec4 c, float colors[9]) {
 		glGenVertexArrays(1, &vao);	// create 1 vertex array object
 		glBindVertexArray(vao);		// make it active
 
@@ -255,7 +255,7 @@ public:
 
 									// vertex coordinates: vbo[0] -> Attrib Array 0 -> vertexPosition of the vertex shader
 		glBindBuffer(GL_ARRAY_BUFFER, vbo[0]); // make it active, it is an array
-		static float vertexCoords[] = { -8, -8, -6, 10, 8, -2 };	// vertex data on the CPU
+		static float vertexCoords[] = { 10.0f*a.v[0], 10.0f*a.v[1], 10.0f*b.v[0], 10.0f*b.v[1], 10.0f*c.v[0], 10.0f*c.v[1] };	// vertex data on the CPU
 		glBufferData(GL_ARRAY_BUFFER,      // copy to the GPU
 			sizeof(vertexCoords), // number of the vbo in bytes
 			vertexCoords,		   // address of the data array on the CPU
@@ -270,7 +270,9 @@ public:
 
 						  // vertex colors: vbo[1] -> Attrib Array 1 -> vertexColor of the vertex shader
 		glBindBuffer(GL_ARRAY_BUFFER, vbo[1]); // make it active, it is an array
-		static float vertexColors[] = { 1, 0, 0,  0, 1, 0,  0, 0, 1 };	// vertex data on the CPU
+		static float vertexColors[] = { colors[0], colors[1], colors[2],
+										colors[3], colors[4], colors[5],
+										colors[6], colors[7], colors[8] };	// vertex data on the CPU
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertexColors), vertexColors, GL_STATIC_DRAW);	// copy to the GPU
 
 																							// Map Attribute Array 1 to the current bound vertex buffer (vbo[1])
@@ -454,20 +456,23 @@ public:
 
 class BezierSurface {
 	float heights[25] = {
-		0, 0, 0.1f, 0.3f, 0.5f,
-		0.1f, 0.1f, 0.1f, 0.3f, 0.3f,
-		0.3f, 0.3f, 0.3f, 0.1f, 0.1f,
-		0.3f, 0.5f, 0.3f, 0.1f, 0,
-		0.3f, 0.3f, 0.3f, 0.1f, 0,
+		0, 0, 0.3f, 0.6f, 1.0f,
+		0.3f, 0.3f, 0.3f, 0.6f, 0.6f,
+		0.6f, 0.6f, 0.6f, 0.3f, 0.3f,
+		0.6f, 1.0f, 0.6f, 0.3f, 0,
+		0.6f, 0.6f, 0.6f, 0.3f, 0,
 	};
+	vec4 surfacePoints[21][21];
 	std::vector<vec4> cps;
+	std::vector<Triangle> surfaceTriangles;
 	int size = 5;
 
 	int factorial(int n)
 	{
 		if (n > 1) {
 			return n * factorial(n - 1);
-		} else {
+		}
+		else {
 			return 1;
 		}
 	}
@@ -478,6 +483,21 @@ class BezierSurface {
 
 	float B(int n, int i, float u) {
 		return (float)kCombination(n, i) * pow(u, i) * pow(1 - u, n - i);
+	}
+
+	float weight(float u, float v) {
+		float r = 0;
+		for (int i = 0; i < size; i++) {
+			for (int j = 0; j < size; j++) {
+				r += cps[i*size + j].v[2] * B(size, i, u) * B(size, j, v);
+			}
+		}
+		return r;
+	}
+	// 139,69,19 the highest, 139,255,19 the lowest color --> 0.545, 0.27-1.0, 0.0745
+	// getting values between 0.27-0.97 for the green component
+	float convertHeightToGreen(float height) {
+		return 0.27f + 0.7f*(1.0f - height);
 	}
 
 public:
@@ -495,20 +515,36 @@ public:
 		float distance = 0.1f;
 		for (int i = 0; i < 21; i++) {
 			for (int j = 0; j < 21; j++) {
-				float tmp = weight((-1 + j*distance), (1 - i*distance));
-				printf("x: %f, y: %f, z: %f\n", (-1 + j*distance), (1 - i*distance), tmp);
+				float height = weight((float)i / 20.0f, (float)j / 20.0f);
+				surfacePoints[i][j] = vec4((-1 + j*distance), (1 - i*distance), height, 1);
 			}
-			printf("\n\n\n");
 		}
+		// 20 because we do not want to overindex
+		for (int i = 0; i < 20; i++) {
+			for (int j = 0; j < 20; j++) {
+				Triangle topLeft; 
+				float colors1[9] = { 0.545f, convertHeightToGreen(surfacePoints[i][j].v[2]), 0.0745f,
+									0.545f, convertHeightToGreen(surfacePoints[i + 1][j].v[2]), 0.0745f,
+									0.545f, convertHeightToGreen(surfacePoints[i][j + 1].v[2]), 0.0745f };
+				topLeft.Create(surfacePoints[i][j], surfacePoints[i + 1][j], surfacePoints[i][j + 1], colors1);
+				printf("%f %f", surfacePoints[i][j].v[0], surfacePoints[i][j].v[1]);
+
+				Triangle bottomRight;
+				float colors2[9] = { 0.545f, convertHeightToGreen(surfacePoints[i][j].v[2]), 0.0745f,
+					0.545f, convertHeightToGreen(surfacePoints[i + 1][j].v[2]), 0.0745f,
+					0.545f, convertHeightToGreen(surfacePoints[i][j + 1].v[2]), 0.0745f };
+				bottomRight.Create(surfacePoints[i+1][j+1], surfacePoints[i + 1][j], surfacePoints[i][j + 1], colors2);
+
+				surfaceTriangles.push_back(topLeft);
+				surfaceTriangles.push_back(bottomRight);
+			}
+		}
+
 	}
-	float weight(float u, float v) {
-		float r = 0;
-		for (int i = 0; i < size; i++) {
-			for (int j = 0; j < size; j++) {
-				r += cps[i*size + j].v[2] * B(size, i, u) * B(size, j, v);
-			}
+	void Draw() {
+		for (int i = 0; i < surfaceTriangles.size(); i++) {
+			surfaceTriangles[i].Draw();
 		}
-		return r;
 	}
 
 };
@@ -574,7 +610,7 @@ void onDisplay() {
 	glClearColor(0, 0, 0, 0);							// background color 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the screen
 
-	//triangle.Draw();
+	bezierSurface.Draw();
 	lagrangeCurve.Draw();
 	glutSwapBuffers();									// exchange the two buffers
 }
