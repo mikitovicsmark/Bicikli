@@ -255,7 +255,7 @@ public:
 
 									// vertex coordinates: vbo[0] -> Attrib Array 0 -> vertexPosition of the vertex shader
 		glBindBuffer(GL_ARRAY_BUFFER, vbo[0]); // make it active, it is an array
-		static float vertexCoords[] = { 10.0f*a.v[0], 10.0f*a.v[1], 10.0f*b.v[0], 10.0f*b.v[1], 10.0f*c.v[0], 10.0f*c.v[1] };	// vertex data on the CPU
+		float vertexCoords[] = { 10.0f*a.v[0], 10.0f*a.v[1], 10.0f*b.v[0], 10.0f*b.v[1], 10.0f*c.v[0], 10.0f*c.v[1] };	// vertex data on the CPU
 		glBufferData(GL_ARRAY_BUFFER,      // copy to the GPU
 			sizeof(vertexCoords), // number of the vbo in bytes
 			vertexCoords,		   // address of the data array on the CPU
@@ -270,7 +270,7 @@ public:
 
 						  // vertex colors: vbo[1] -> Attrib Array 1 -> vertexColor of the vertex shader
 		glBindBuffer(GL_ARRAY_BUFFER, vbo[1]); // make it active, it is an array
-		static float vertexColors[] = { colors[0], colors[1], colors[2],
+		float vertexColors[] = { colors[0], colors[1], colors[2],
 										colors[3], colors[4], colors[5],
 										colors[6], colors[7], colors[8] };	// vertex data on the CPU
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertexColors), vertexColors, GL_STATIC_DRAW);	// copy to the GPU
@@ -456,11 +456,11 @@ public:
 
 class BezierSurface {
 	float heights[25] = {
-		0, 0, 0.3f, 0.6f, 1.0f,
-		0.3f, 0.3f, 0.3f, 0.6f, 0.6f,
-		0.6f, 0.6f, 0.6f, 0.3f, 0.3f,
-		0.6f, 1.0f, 0.6f, 0.3f, 0,
-		0.6f, 0.6f, 0.6f, 0.3f, 0,
+		0.1f, 0.1f, 0.5f, 1.0f, 1.0f,
+		0.5f, 0.5f, 0.5f, 0.5f, 1.0f,
+		0.5f, 1.0f, 1.0f, 0.5f, 0.5f,
+		0.5f, 1.0f, 1.0f, 0.5f, 0.1f,
+		0.5f, 0.5f, 0.5f, 0.1f, 0.1f,
 	};
 	vec4 surfacePoints[21][21];
 	std::vector<vec4> cps;
@@ -482,7 +482,7 @@ class BezierSurface {
 	}
 
 	float B(int n, int i, float u) {
-		return (float)kCombination(n, i) * pow(u, i) * pow(1 - u, n - i);
+		return (float)kCombination(n - 1, i) * pow(u, i) * pow(1 - u, n - 1 - i);
 	}
 
 	float weight(float u, float v) {
@@ -494,10 +494,8 @@ class BezierSurface {
 		}
 		return r;
 	}
-	// 139,69,19 the highest, 139,255,19 the lowest color --> 0.545, 0.27-1.0, 0.0745
-	// getting values between 0.27-0.97 for the green component
 	float convertHeightToGreen(float height) {
-		return 0.27f + 0.7f*(1.0f - height);
+		return (1.0f - height);
 	}
 
 public:
@@ -522,17 +520,20 @@ public:
 		// 20 because we do not want to overindex
 		for (int i = 0; i < 20; i++) {
 			for (int j = 0; j < 20; j++) {
+
+				float r = 0.55f;
+				float b = 0.1f;
+
 				Triangle topLeft; 
-				float colors1[9] = { 0.545f, convertHeightToGreen(surfacePoints[i][j].v[2]), 0.0745f,
-									0.545f, convertHeightToGreen(surfacePoints[i + 1][j].v[2]), 0.0745f,
-									0.545f, convertHeightToGreen(surfacePoints[i][j + 1].v[2]), 0.0745f };
+				float colors1[9] = {r, convertHeightToGreen(surfacePoints[i][j].v[2]), b,
+									r, convertHeightToGreen(surfacePoints[i + 1][j].v[2]), b,
+									r, convertHeightToGreen(surfacePoints[i][j + 1].v[2]), b };
 				topLeft.Create(surfacePoints[i][j], surfacePoints[i + 1][j], surfacePoints[i][j + 1], colors1);
-				printf("%f %f", surfacePoints[i][j].v[0], surfacePoints[i][j].v[1]);
 
 				Triangle bottomRight;
-				float colors2[9] = { 0.545f, convertHeightToGreen(surfacePoints[i][j].v[2]), 0.0745f,
-					0.545f, convertHeightToGreen(surfacePoints[i + 1][j].v[2]), 0.0745f,
-					0.545f, convertHeightToGreen(surfacePoints[i][j + 1].v[2]), 0.0745f };
+				float colors2[9] = { r, convertHeightToGreen(surfacePoints[i+1][j+1].v[2]), b,
+					r, convertHeightToGreen(surfacePoints[i + 1][j].v[2]), b,
+					r, convertHeightToGreen(surfacePoints[i][j + 1].v[2]), b };
 				bottomRight.Create(surfacePoints[i+1][j+1], surfacePoints[i + 1][j], surfacePoints[i][j + 1], colors2);
 
 				surfaceTriangles.push_back(topLeft);
