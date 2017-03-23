@@ -409,6 +409,9 @@ public:
 		// fill interleaved data
 		res.clear();
 		nRes = 0;
+
+		float length = 0;
+
 		if (cps.size() > 1) {
 			for (int i = 1; i < cps.size(); i++) {
 				for (int j = 0; j < 100; j++) {
@@ -419,8 +422,14 @@ public:
 					res.push_back(1); //g
 					res.push_back(1); //b
 					nRes++;
+
+					if (res.size() > 1) {
+						vec4 previous = res[res.size() - 2];
+						length += sqrtf(pow(previous.v[0] - tmp.v[0], 2) + pow(previous.v[1] - tmp.v[1], 2));
+					}
 				}
 			}
+			length += sqrtf(pow(cps[cps.size() - 2].v[0] - cps[cps.size() - 1].v[0], 2) + pow(cps[cps.size() - 2].v[1] - cps[cps.size() - 1].v[1], 2));
 		}
 		res.push_back(cps[cps.size()-1].v[0]); //x
 		res.push_back(cps[cps.size()-1].v[1]); //y
@@ -429,7 +438,7 @@ public:
 		res.push_back(1); //b
 		nRes++;
 		// copy data to the GPU
-
+		printf("Curve length: %f m.\n", length);
 		glBufferData(GL_ARRAY_BUFFER, nRes * 5 * sizeof(float), &res[0], GL_DYNAMIC_DRAW);
 	}
 
@@ -482,14 +491,14 @@ class BezierSurface {
 	}
 
 	float B(int n, int i, float u) {
-		return (float)kCombination(n - 1, i) * pow(u, i) * pow(1 - u, n - 1 - i);
+		return (float)kCombination(n, i) * pow(u, i) * pow(1 - u, n - i);
 	}
 
 	float weight(float u, float v) {
 		float r = 0;
 		for (int i = 0; i < size; i++) {
 			for (int j = 0; j < size; j++) {
-				r += cps[i*size + j].v[2] * B(size, i, u) * B(size, j, v);
+				r += cps[i*size + j].v[2] * B(size - 1, i, u) * B(size - 1, j, v);
 			}
 		}
 		return r;
@@ -550,9 +559,14 @@ public:
 
 };
 
+class Bicycle {
+	Triangle parts[2];
+};
+
 // The virtual world: collection of two objects
 BezierSurface bezierSurface;
 LagrangeCurve lagrangeCurve;
+Bicycle bicycle;
 
 // Initialization, create an OpenGL context
 void onInitialization() {
@@ -618,7 +632,12 @@ void onDisplay() {
 
 // Key of ASCII code pressed
 void onKeyboard(unsigned char key, int pX, int pY) {
-	if (key == 'd') glutPostRedisplay();         // if d, invalidate display, i.e. redraw
+	if (key == 'd') {
+		glutPostRedisplay();         // if d, invalidate display, i.e. redraw
+	}
+	if (key == ' ') {
+
+	}
 }
 
 // Key of ASCII code released
