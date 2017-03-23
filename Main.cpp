@@ -461,6 +461,10 @@ public:
 			glDrawArrays(GL_LINE_STRIP, 0, nRes);
 		}
 	};
+
+	std::vector<float> getPoints() {
+		return res;
+	}
 };
 
 class BezierSurface {
@@ -533,13 +537,12 @@ public:
 				float r = 0.55f;
 				float b = 0.1f;
 
-				Triangle topLeft; 
+				Triangle topLeft, bottomRight;
 				float colors1[9] = {r, convertHeightToGreen(surfacePoints[i][j].v[2]), b,
 									r, convertHeightToGreen(surfacePoints[i + 1][j].v[2]), b,
 									r, convertHeightToGreen(surfacePoints[i][j + 1].v[2]), b };
 				topLeft.Create(surfacePoints[i][j], surfacePoints[i + 1][j], surfacePoints[i][j + 1], colors1);
 
-				Triangle bottomRight;
 				float colors2[9] = { r, convertHeightToGreen(surfacePoints[i+1][j+1].v[2]), b,
 					r, convertHeightToGreen(surfacePoints[i + 1][j].v[2]), b,
 					r, convertHeightToGreen(surfacePoints[i][j + 1].v[2]), b };
@@ -561,6 +564,33 @@ public:
 
 class Bicycle {
 	Triangle parts[2];
+	std::vector<long> timeStamps;
+	LagrangeCurve lagrangeCurve;
+	BezierSurface bezierSurface;
+	boolean started = false;
+
+
+public:
+
+	void Create(LagrangeCurve& lc, BezierSurface& bs) {
+		lagrangeCurve = lc;
+		bezierSurface = bs;
+	}
+
+	void Start() {
+		Triangle left, right;
+		std::vector<float> curvePoints;
+		curvePoints = lagrangeCurve.getPoints();
+		
+		
+	}
+
+	void AddTime(long time) {
+		timeStamps.push_back(time);
+	}
+
+	void Draw() {
+	}
 };
 
 // The virtual world: collection of two objects
@@ -627,6 +657,7 @@ void onDisplay() {
 
 	bezierSurface.Draw();
 	lagrangeCurve.Draw();
+	bicycle.Draw();
 	glutSwapBuffers();									// exchange the two buffers
 }
 
@@ -636,7 +667,8 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 		glutPostRedisplay();         // if d, invalidate display, i.e. redraw
 	}
 	if (key == ' ') {
-
+		bicycle.Create(lagrangeCurve, bezierSurface);
+		bicycle.Start();
 	}
 }
 
@@ -651,6 +683,8 @@ void onMouse(int button, int state, int pX, int pY) {
 		float cX = 2.0f * pX / windowWidth - 1;	// flip y axis
 		float cY = 1.0f - 2.0f * pY / windowHeight;
 		lagrangeCurve.AddControlPoint(cX, cY);
+		long time = glutGet(GLUT_ELAPSED_TIME);
+		bicycle.AddTime(time);
 		glutPostRedisplay();     // redraw
 	}
 }
