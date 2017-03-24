@@ -671,18 +671,20 @@ public:
 	int GetIndex(long currentTime) {
 		long elapsedTime = currentTime - startTime;
 		long step = 0;
+		long timePart = 0;
 		int skip = 0;
 		if (elapsedTime > timeStamps[timeStamps.size() - 1]) {
 			elapsedTime = elapsedTime % timeStamps[timeStamps.size() - 1];
 		}
 		for (int i = 0; i < timeStamps.size() - 1; i++) {
-			if ((elapsedTime >= timeStamps[i]) && (elapsedTime < timeStamps[i+1])) {
+			if ((elapsedTime > timeStamps[i]) && (elapsedTime < timeStamps[i+1])) {
+				timePart = elapsedTime - timeStamps[i] ;
 				step = (timeStamps[i + 1] - timeStamps[i]) / 100.0f;
 				skip = i;
 				break;
 			}
 		}
-		return step == 0 ? step : skip*100 + floor(elapsedTime / step);
+		return step == 0 ? step : skip*100 + round(timePart / step);
 	}
 
 	void Animate(float t) {
