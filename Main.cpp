@@ -241,6 +241,8 @@ class Triangle {
 	unsigned int vao;	// vertex array object id
 	float sx, sy;		// scaling
 	float wTx, wTy;		// translation
+	int angle;
+	float dx, dy;
 public:
 	Triangle() {
 		Animate(0);
@@ -286,6 +288,17 @@ public:
 		sy = 1; // cosf(t);
 		wTx = 0; // 4 * cosf(t / 2);
 		wTy = 0; // 4 * sinf(t / 2);
+		angle = 0;
+	}
+
+	void AnimateBycicle(float x, float y, float t) {
+		sx = 1; // sinf(t);
+		sy = 1; // cosf(t);
+		wTx = 0;// 4 * cosf(t / 2);
+		wTy = 0;// 4 * sinf(t / 2);
+		angle = t;
+		dx = x;
+		dy = y;
 	}
 
 	void Draw() {
@@ -309,6 +322,44 @@ public:
 		glBindVertexArray(vao);	// make the vao and its vbos active playing the role of the data source
 		glDrawArrays(GL_TRIANGLES, 0, 3);	// draw a single triangle with vertices defined in vao
 	}
+
+	void DrawBicycle() {
+		mat4 Mscale(sx, 0, 0, 0,
+			0, sy, 0, 0,
+			0, 0, 0, 0,
+			0, 0, 0, 1); // model matrix
+
+		mat4 Mtranslate(1, 0, 0, 0,
+			0, 1, 0, 0,
+			0, 0, 0, 0,
+			wTx, wTy, 0, 1); // model matrix
+
+		mat4 Rotate(cosf(angle), sinf(angle), 0, 0,
+			-sinf(angle), cosf(angle), 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1);
+
+		mat4 toOrigo(1, 0, 0, 0,
+			0, 1, 0, 0,
+			0, 0, 0, 0,
+			-dx, -dy, 0, 1);
+
+		mat4 toOrigin(1, 0, 0, 0,
+			0, 1, 0, 0,
+			0, 0, 0, 0,
+			dx, dy, 0, 1);
+
+			mat4 MVPTransform = Mscale * Mtranslate * toOrigo * Rotate * toOrigin * camera.V() * camera.P();
+
+		// set GPU uniform matrix variable MVP with the content of CPU variable MVPTransform
+		int location = glGetUniformLocation(shaderProgram, "MVP");
+		if (location >= 0) glUniformMatrix4fv(location, 1, GL_TRUE, MVPTransform); // set uniform variable MVP to the MVPTransform
+		else printf("uniform MVP cannot be set\n");
+
+		glBindVertexArray(vao);	// make the vao and its vbos active playing the role of the data source
+		glDrawArrays(GL_TRIANGLES, 0, 3);	// draw a single triangle with vertices defined in vao
+	}
+
 };
 
 class LineStrip {
@@ -563,11 +614,13 @@ public:
 };
 
 class Bicycle {
-	Triangle parts[2];
+	std::vector<Triangle> parts;
 	std::vector<long> timeStamps;
+	long startTime;
 	LagrangeCurve lagrangeCurve;
 	BezierSurface bezierSurface;
 	boolean started = false;
+	float colors[9] = { 0, 0, 1.0f, 0, 0, 0, 1.0f, 1.0f, 1.0f };
 
 
 public:
@@ -578,18 +631,92 @@ public:
 	}
 
 	void Start() {
+		if (!started) {
+			started = true;
+			startTime = glutGet(GLUT_ELAPSED_TIME);
+			for (int i = timeStamps.size() - 1; i > -1 ; i--) {
+				timeStamps[i] -= timeStamps[0];
+			}
+			Create();
+		}
+	}
+
+	int ToCurvePoint(long elapsedTime) {
+		long step = 0;
+		for (int i = 0; i < timeStamps.size() - 1; i++) {
+			if ((elapsedTime > timeStamps[i]) & (elapsedTime < timeStamps[i + 1])) {
+				step = round((timeStamps[i + 1] - timeStamps[i]) / 100);
+			}
+		}
+		return step == 0 ? step : round(elapsedTime / step);
+	}
+
+	void Create() {
 		Triangle left, right;
 		std::vector<float> curvePoints;
 		curvePoints = lagrangeCurve.getPoints();
-		
-		
+		vec4 front, leftWing, rightWing, back;
+
+		float x = curvePoints[0] / 10.0f;
+		float y = curvePoints[1] / 10.0f;
+
+		front = vec4(x, y, 0, 1);
+		leftWing = vec4(x - 0.04f, y - 0.07f, 0, 1);
+		rightWing = vec4(x + 0.04f, y - 0.07f, 0, 1);
+		back = vec4(x, y - 0.04f, 0, 1);
+
+		left.Create(front, leftWing, back, colors);
+		right.Create(front, rightWing, back, colors);
+
+		parts.push_back(left);
+		parts.push_back(right);
+	}
+
+	void Reposition() {
+		std::vector<float> curvePoints;
+		curvePoints = lagrangeCurve.getPoints();
+		vec4 front, leftWing, rightWing, back;
+
+		long currentTime = glutGet(GLUT_ELAPSED_TIME);
+
+		if (currentTime > startTime + timeStamps[timeStamps.size() - 1]) {
+			startTime += timeStamps[timeStamps.size() - 1];
+		}
+
+		int index = ToCurvePoint(currentTime-startTime);
+		//printf("%d", index);
+
+		float x = curvePoints[index*5] / 10.0f;
+		float y = curvePoints[index*5+1] / 10.0f;
+
+		front = vec4(x, y, 0, 1);
+		leftWing = vec4(x - 0.04f, y - 0.07f, 0, 1);
+		rightWing = vec4(x + 0.04f, y - 0.07f, 0, 1);
+		back = vec4(x, y - 0.04f, 0, 1);
 	}
 
 	void AddTime(long time) {
 		timeStamps.push_back(time);
 	}
 
+	void Animate(float t) {
+		if (parts.size() > 0) {
+			std::vector<float> curvePoints;
+			curvePoints = lagrangeCurve.getPoints();
+
+			float x = curvePoints[0];
+			float y = curvePoints[1];
+
+			parts[0].AnimateBycicle(x, y, t);
+			parts[1].AnimateBycicle(x, y, t);
+		}
+	}
+
 	void Draw() {
+		if (started) {
+			parts[0].DrawBicycle();
+			parts[1].DrawBicycle();
+		}
 	}
 };
 
@@ -698,7 +825,7 @@ void onIdle() {
 	long time = glutGet(GLUT_ELAPSED_TIME); // elapsed time since the start of the program
 	float sec = time / 1000.0f;				// convert msec to sec
 	camera.Animate(sec);					// animate the camera
-	//triangle.Animate(sec);					// animate the triangle object
+	bicycle.Animate(sec);					// animate the triangle object
 	glutPostRedisplay();					// redraw the scene
 }
 
