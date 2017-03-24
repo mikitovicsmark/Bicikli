@@ -241,8 +241,8 @@ class Triangle {
 	unsigned int vao;	// vertex array object id
 	float sx, sy;		// scaling
 	float wTx, wTy;		// translation
-	int angle;
-	float dx, dy;
+	float angle;
+	float oldx, oldy, newx, newy;
 public:
 	Triangle() {
 		Animate(0);
@@ -291,14 +291,16 @@ public:
 		angle = 0;
 	}
 
-	void AnimateBycicle(float x, float y, float t) {
+	void AnimateBycicle(float x1, float y1, float x2, float y2, float t) {
 		sx = 1; // sinf(t);
 		sy = 1; // cosf(t);
 		wTx = 0;// 4 * cosf(t / 2);
 		wTy = 0;// 4 * sinf(t / 2);
 		angle = t;
-		dx = x;
-		dy = y;
+		oldx = x1;
+		oldy = y1;
+		newx = x2;
+		newy = y2;
 	}
 
 	void Draw() {
@@ -342,14 +344,14 @@ public:
 		mat4 toOrigo(1, 0, 0, 0,
 			0, 1, 0, 0,
 			0, 0, 0, 0,
-			-dx, -dy, 0, 1);
+			-oldx, -oldy, 0, 1);
 
 		mat4 toOrigin(1, 0, 0, 0,
 			0, 1, 0, 0,
 			0, 0, 0, 0,
-			dx, dy, 0, 1);
+			newx, newy, 0, 1);
 
-			mat4 MVPTransform = Mscale * Mtranslate * toOrigo * Rotate * toOrigin * camera.V() * camera.P();
+			mat4 MVPTransform = Mscale * Mtranslate * toOrigo * toOrigin * camera.V() * camera.P();
 
 		// set GPU uniform matrix variable MVP with the content of CPU variable MVPTransform
 		int location = glGetUniformLocation(shaderProgram, "MVP");
@@ -641,16 +643,6 @@ public:
 		}
 	}
 
-	int ToCurvePoint(long elapsedTime) {
-		long step = 0;
-		for (int i = 0; i < timeStamps.size() - 1; i++) {
-			if ((elapsedTime > timeStamps[i]) & (elapsedTime < timeStamps[i + 1])) {
-				step = round((timeStamps[i + 1] - timeStamps[i]) / 100);
-			}
-		}
-		return step == 0 ? step : round(elapsedTime / step);
-	}
-
 	void Create() {
 		Triangle left, right;
 		std::vector<float> curvePoints;
@@ -672,31 +664,25 @@ public:
 		parts.push_back(right);
 	}
 
-	void Reposition() {
-		std::vector<float> curvePoints;
-		curvePoints = lagrangeCurve.getPoints();
-		vec4 front, leftWing, rightWing, back;
-
-		long currentTime = glutGet(GLUT_ELAPSED_TIME);
-
-		if (currentTime > startTime + timeStamps[timeStamps.size() - 1]) {
-			startTime += timeStamps[timeStamps.size() - 1];
-		}
-
-		int index = ToCurvePoint(currentTime-startTime);
-		//printf("%d", index);
-
-		float x = curvePoints[index*5] / 10.0f;
-		float y = curvePoints[index*5+1] / 10.0f;
-
-		front = vec4(x, y, 0, 1);
-		leftWing = vec4(x - 0.04f, y - 0.07f, 0, 1);
-		rightWing = vec4(x + 0.04f, y - 0.07f, 0, 1);
-		back = vec4(x, y - 0.04f, 0, 1);
-	}
-
 	void AddTime(long time) {
 		timeStamps.push_back(time);
+	}
+
+	int GetIndex(long currentTime) {
+		long elapsedTime = currentTime - startTime;
+		long step = 0;
+		int skip = 0;
+		if (elapsedTime > timeStamps[timeStamps.size() - 1]) {
+			elapsedTime = elapsedTime % timeStamps[timeStamps.size() - 1];
+		}
+		for (int i = 0; i < timeStamps.size() - 1; i++) {
+			if ((elapsedTime >= timeStamps[i]) && (elapsedTime < timeStamps[i+1])) {
+				step = (timeStamps[i + 1] - timeStamps[i]) / 100.0f;
+				skip = i;
+				break;
+			}
+		}
+		return step == 0 ? step : skip*100 + floor(elapsedTime / step);
 	}
 
 	void Animate(float t) {
@@ -704,11 +690,31 @@ public:
 			std::vector<float> curvePoints;
 			curvePoints = lagrangeCurve.getPoints();
 
-			float x = curvePoints[0];
-			float y = curvePoints[1];
+			long currentTime = glutGet(GLUT_ELAPSED_TIME);
 
-			parts[0].AnimateBycicle(x, y, t);
-			parts[1].AnimateBycicle(x, y, t);
+			int index = GetIndex(currentTime);
+			//printf("index %d max %d\n", index, curvePoints.size()/5);
+
+			if (index >= curvePoints.size() / 5) {
+				index = 1;
+				float oldx = curvePoints[0];
+				float oldy = curvePoints[1];
+
+				parts[0].AnimateBycicle(oldx, oldy, oldx, oldy, t);
+				parts[1].AnimateBycicle(oldx, oldy, oldx, oldy, t);
+			}
+
+			if (index > 1) {
+				float oldx = curvePoints[0];
+				float oldy = curvePoints[1];
+
+				float newx = curvePoints[index * 5];
+				float newy = curvePoints[index * 5 + 1];
+
+
+				parts[0].AnimateBycicle(oldx, oldy, newx, newy, t);
+				parts[1].AnimateBycicle(oldx, oldy, newx, newy, t);
+			} 
 		}
 	}
 
@@ -825,7 +831,7 @@ void onIdle() {
 	long time = glutGet(GLUT_ELAPSED_TIME); // elapsed time since the start of the program
 	float sec = time / 1000.0f;				// convert msec to sec
 	camera.Animate(sec);					// animate the camera
-	bicycle.Animate(sec);					// animate the triangle object
+	bicycle.Animate(sec);					// animate the bicycle object
 	glutPostRedisplay();					// redraw the scene
 }
 
