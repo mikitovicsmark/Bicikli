@@ -351,7 +351,7 @@ public:
 			0, 0, 0, 0,
 			newx, newy, 0, 1);
 
-			mat4 MVPTransform = Mscale * Mtranslate * toOrigo * toOrigin * camera.V() * camera.P();
+			mat4 MVPTransform = Mscale * Mtranslate * toOrigo * Rotate * toOrigin * camera.V() * camera.P();
 
 		// set GPU uniform matrix variable MVP with the content of CPU variable MVPTransform
 		int location = glGetUniformLocation(shaderProgram, "MVP");
@@ -695,15 +695,14 @@ public:
 			long currentTime = glutGet(GLUT_ELAPSED_TIME);
 
 			int index = GetIndex(currentTime);
-			//printf("index %d max %d\n", index, curvePoints.size()/5);
 
 			if (index >= curvePoints.size() / 5) {
 				index = 1;
 				float oldx = curvePoints[0];
 				float oldy = curvePoints[1];
 
-				parts[0].AnimateBycicle(oldx, oldy, oldx, oldy, t);
-				parts[1].AnimateBycicle(oldx, oldy, oldx, oldy, t);
+				parts[0].AnimateBycicle(oldx, oldy, oldx, oldy, 1);
+				parts[1].AnimateBycicle(oldx, oldy, oldx, oldy, 1);
 			}
 
 			if (index > 1) {
@@ -713,9 +712,18 @@ public:
 				float newx = curvePoints[index * 5];
 				float newy = curvePoints[index * 5 + 1];
 
+				float prevx = curvePoints[(index - 1)* 5];
+				float prevy = curvePoints[(index - 1) * 5 + 1];
 
-				parts[0].AnimateBycicle(oldx, oldy, newx, newy, t);
-				parts[1].AnimateBycicle(oldx, oldy, newx, newy, t);
+				float den = sqrtf(pow(prevx, 2) + pow(prevy, 2)) * sqrtf(pow(newx, 2) + pow(newy, 2));
+				float num = (prevx*newx) + (prevy*newy);
+
+				float angle = (num / den);
+
+				printf("%f,%f  %f,%f  angle %f\n", prevx, prevy, newx, newy, acosf(angle));
+
+				parts[0].AnimateBycicle(oldx, oldy, newx, newy, angle);
+				parts[1].AnimateBycicle(oldx, oldy, newx, newy, angle);
 			} 
 		}
 	}
