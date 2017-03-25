@@ -687,6 +687,23 @@ public:
 		return step == 0 ? step : skip*100 + round(timePart / step);
 	}
 
+	float CalculateAngle(float x1, float y1, float x2, float y2) {
+		float ux = 0;
+		float uy = 1.0f;
+
+		float vx = x2 - x1;
+		float vy = y2 - y1;
+
+		float ulength = 1.0f;
+		float vlength = sqrtf(pow(vx, 2) + pow(vy, 2));
+
+		float dot = ux * vx + uy * vy;
+
+		float cosfi = dot / (ulength * vlength);
+
+		return vx > 0 ? -acosf(cosfi) : acosf(cosfi);
+	}
+
 	void Animate(float t) {
 		if (parts.size() > 0) {
 			std::vector<float> curvePoints;
@@ -712,28 +729,7 @@ public:
 				float newx = curvePoints[index * 5];
 				float newy = curvePoints[index * 5 + 1];
 
-				float angle = 0;
-
-				float ux = 0;
-				float uy = 1.0f;
-
-				float vx = curvePoints[(index + 1) * 5] - curvePoints[index * 5];
-				float vy = curvePoints[(index + 1) * 5 + 1] - curvePoints[index * 5 + 1];
-
-				float ulength = 1.0f;
-				float vlength = sqrtf(pow(vx, 2) + pow(vy, 2));
-
-				float dot = ux * vx + uy * vy;
-
-				float cosfi = dot / (ulength * vlength);
-
-				angle = acosf(cosfi);
-
-				if (vx > 0) {
-					angle = -angle;
-				}
-
-				printf("%f\n", angle);
+				float angle = CalculateAngle(newx, newy, curvePoints[(index + 1) * 5], curvePoints[(index + 1) * 5 + 1]);
 
 				parts[0].AnimateBycicle(oldx, oldy, newx, newy, angle);
 				parts[1].AnimateBycicle(oldx, oldy, newx, newy, angle);
