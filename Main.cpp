@@ -528,7 +528,7 @@ class BezierSurface {
 		0.5f, 1.0f, 1.0f, 0.5f, 0.1f,
 		0.5f, 0.5f, 0.5f, 0.1f, 0.1f,
 	};
-	vec4 surfacePoints[21][21];
+	std::vector<vec4> surfacePoints;
 	std::vector<vec4> cps;
 	std::vector<Triangle> surfaceTriangles;
 	int size = 5;
@@ -580,7 +580,7 @@ public:
 		for (int i = 0; i < 21; i++) {
 			for (int j = 0; j < 21; j++) {
 				float height = weight((float)i / 20.0f, (float)j / 20.0f);
-				surfacePoints[i][j] = vec4((-1 + j*distance), (1 - i*distance), height, 1);
+				surfacePoints.push_back(vec4((-1 + j*distance), (1 - i*distance), height, 1));
 			}
 		}
 		// 20 because we do not want to overindex
@@ -591,15 +591,15 @@ public:
 				float b = 0.1f;
 
 				Triangle topLeft, bottomRight;
-				float colors1[9] = {r, convertHeightToGreen(surfacePoints[i][j].v[2]), b,
-									r, convertHeightToGreen(surfacePoints[i + 1][j].v[2]), b,
-									r, convertHeightToGreen(surfacePoints[i][j + 1].v[2]), b };
-				topLeft.Create(surfacePoints[i][j], surfacePoints[i + 1][j], surfacePoints[i][j + 1], colors1);
+				float colors1[9] = {r, convertHeightToGreen(surfacePoints[i*21 + j].v[2]), b,
+									r, convertHeightToGreen(surfacePoints[i*21+j+1].v[2]), b,
+									r, convertHeightToGreen(surfacePoints[(i+1)*21+j].v[2]), b };
+				topLeft.Create(surfacePoints[i*21+j], surfacePoints[i * 21 + j + 1], surfacePoints[(i + 1) * 21 + j], colors1);
 
-				float colors2[9] = { r, convertHeightToGreen(surfacePoints[i+1][j+1].v[2]), b,
-					r, convertHeightToGreen(surfacePoints[i + 1][j].v[2]), b,
-					r, convertHeightToGreen(surfacePoints[i][j + 1].v[2]), b };
-				bottomRight.Create(surfacePoints[i+1][j+1], surfacePoints[i + 1][j], surfacePoints[i][j + 1], colors2);
+				float colors2[9] = { r, convertHeightToGreen(surfacePoints[i * 21 + j + 1].v[2]), b,
+					r, convertHeightToGreen(surfacePoints[(i + 1) * 21 + j].v[2]), b,
+					r, convertHeightToGreen(surfacePoints[(i + 1) * 21 + j + 1].v[2]), b };
+				bottomRight.Create(surfacePoints[i * 21 + j + 1], surfacePoints[(i + 1) * 21 + j], surfacePoints[(i + 1) * 21 + j + 1], colors2);
 
 				surfaceTriangles.push_back(topLeft);
 				surfaceTriangles.push_back(bottomRight);
@@ -607,6 +607,11 @@ public:
 		}
 
 	}
+
+	std::vector<vec4> GetSurfacePoints() {
+		return surfacePoints;
+	}
+
 	void Draw() {
 		for (int i = 0; i < surfaceTriangles.size(); i++) {
 			surfaceTriangles[i].Draw();
@@ -704,6 +709,11 @@ public:
 		return vx > 0 ? -acosf(cosfi) : acosf(cosfi);
 	}
 
+	float GetHeight(float x, float y) {
+		std::vector<vec4> surfacePoints = bezierSurface.GetSurfacePoints();
+		return x;
+	}
+
 	void Animate(float t) {
 		if (parts.size() > 0) {
 			std::vector<float> curvePoints;
@@ -732,6 +742,8 @@ public:
 				float newy = curvePoints[index * 5 + 1];
 
 				float angle = CalculateAngle(newx, newy, curvePoints[(index + 1) * 5], curvePoints[(index + 1) * 5 + 1]);
+
+				float kek = GetHeight(newx, newy);
 
 				parts[0].AnimateBycicle(oldx, oldy, newx, newy, angle);
 				parts[1].AnimateBycicle(oldx, oldy, newx, newy, angle);
