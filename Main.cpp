@@ -705,22 +705,35 @@ public:
 				parts[1].AnimateBycicle(oldx, oldy, oldx, oldy, 1);
 			}
 
-			if (index > 1) {
+			if (index > 1 && index < (curvePoints.size() / 5) - 1) {
 				float oldx = curvePoints[0];
 				float oldy = curvePoints[1];
 
 				float newx = curvePoints[index * 5];
 				float newy = curvePoints[index * 5 + 1];
 
-				float prevx = curvePoints[(index - 1)* 5];
-				float prevy = curvePoints[(index - 1) * 5 + 1];
+				float angle = 0;
 
-				float den = sqrtf(pow(prevx, 2) + pow(prevy, 2)) * sqrtf(pow(newx, 2) + pow(newy, 2));
-				float num = (prevx*newx) + (prevy*newy);
+				float ux = 0;
+				float uy = 1.0f;
 
-				float angle = (num / den);
+				float vx = curvePoints[(index + 1) * 5] - curvePoints[index * 5];
+				float vy = curvePoints[(index + 1) * 5 + 1] - curvePoints[index * 5 + 1];
 
-				printf("%f,%f  %f,%f  angle %f\n", prevx, prevy, newx, newy, acosf(angle));
+				float ulength = 1.0f;
+				float vlength = sqrtf(pow(vx, 2) + pow(vy, 2));
+
+				float dot = ux * vx + uy * vy;
+
+				float cosfi = dot / (ulength * vlength);
+
+				angle = acosf(cosfi);
+
+				if (vx > 0) {
+					angle = -angle;
+				}
+
+				printf("%f\n", angle);
 
 				parts[0].AnimateBycicle(oldx, oldy, newx, newy, angle);
 				parts[1].AnimateBycicle(oldx, oldy, newx, newy, angle);
