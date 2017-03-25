@@ -718,8 +718,10 @@ public:
 				float oldx = curvePoints[0];
 				float oldy = curvePoints[1];
 
-				parts[0].AnimateBycicle(oldx, oldy, oldx, oldy, 1);
-				parts[1].AnimateBycicle(oldx, oldy, oldx, oldy, 1);
+				float angle = CalculateAngle(curvePoints[0], curvePoints[1], curvePoints[0 + 5], curvePoints[1 + 5]);
+
+				parts[0].AnimateBycicle(oldx, oldy, oldx, oldy, angle);
+				parts[1].AnimateBycicle(oldx, oldy, oldx, oldy, angle);
 			}
 
 			if (index > 1 && index < (curvePoints.size() / 5) - 1) {
