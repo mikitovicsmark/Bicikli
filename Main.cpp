@@ -243,6 +243,8 @@ class Triangle {
 	float wTx, wTy;		// translation
 	float angle;
 	float oldx, oldy, newx, newy;
+	boolean mirror;
+	float ratio;
 public:
 	Triangle() {
 		Animate(0);
@@ -257,7 +259,7 @@ public:
 
 									// vertex coordinates: vbo[0] -> Attrib Array 0 -> vertexPosition of the vertex shader
 		glBindBuffer(GL_ARRAY_BUFFER, vbo[0]); // make it active, it is an array
-		float vertexCoords[] = { 10.0f*a.v[0], 10.0f*a.v[1], 10.0f*b.v[0], 10.0f*b.v[1], 10.0f*c.v[0], 10.0f*c.v[1] };	// vertex data on the CPU
+		float vertexCoords[6] = { 10.0f*a.v[0], 10.0f*a.v[1], 10.0f*b.v[0], 10.0f*b.v[1], 10.0f*c.v[0], 10.0f*c.v[1] };
 		glBufferData(GL_ARRAY_BUFFER,      // copy to the GPU
 			sizeof(vertexCoords), // number of the vbo in bytes
 			vertexCoords,		   // address of the data array on the CPU
@@ -291,8 +293,18 @@ public:
 		angle = 0;
 	}
 
-	void AnimateBycicle(float x1, float y1, float x2, float y2, float t) {
+	void AnimateIncline(float r, boolean m) {
 		sx = 1; // sinf(t);
+		sy = 1; // cosf(t);
+		wTx = 0; // 4 * cosf(t / 2);
+		wTy = 0; // 4 * sinf(t / 2);
+		angle = 0;
+		ratio = r;
+		mirror = m;
+	}
+
+	void AnimateBycicle(float x1, float y1, float x2, float y2, float t, float r) {
+		sx = 1; //sinf(t);
 		sy = 1; // cosf(t);
 		wTx = 0;// 4 * cosf(t / 2);
 		wTy = 0;// 4 * sinf(t / 2);
@@ -301,6 +313,7 @@ public:
 		oldy = y1;
 		newx = x2;
 		newy = y2;
+		ratio = r;
 	}
 
 	void Draw() {
@@ -315,6 +328,47 @@ public:
 			wTx, wTy, 0, 1); // model matrix
 
 		mat4 MVPTransform = Mscale * Mtranslate * camera.V() * camera.P();
+
+		// set GPU uniform matrix variable MVP with the content of CPU variable MVPTransform
+		int location = glGetUniformLocation(shaderProgram, "MVP");
+		if (location >= 0) glUniformMatrix4fv(location, 1, GL_TRUE, MVPTransform); // set uniform variable MVP to the MVPTransform
+		else printf("uniform MVP cannot be set\n");
+
+		glBindVertexArray(vao);	// make the vao and its vbos active playing the role of the data source
+		glDrawArrays(GL_TRIANGLES, 0, 3);	// draw a single triangle with vertices defined in vao
+	}
+
+	void DrawIncline() {
+		mat4 Mscale(sx, 0, 0, 0,
+			0, sy, 0, 0,
+			0, 0, 0, 0,
+			0, 0, 0, 1); // model matrix
+
+		mat4 Mtranslate(1, 0, 0, 0,
+			0, 1, 0, 0,
+			0, 0, 0, 0,
+			wTx, wTy, 0, 1); // model matrix
+
+		float scaleX = mirror ? -1.0f : 1.0f;
+		float scaleY = ratio;
+		float adjustX = mirror ? 1.0f : 0;
+
+		mat4 calcIncline(scaleX, 0, 0, 0,
+			0, scaleY, 0, 0,
+			0, 0, 1, 0,
+			adjustX, 0, 0, 1);
+
+		mat4 toOrigo(1, 0, 0, 0,
+			0, 1, 0, 0,
+			0, 0, 0, 0,
+			9.5f, 9.5f, 0, 1);
+
+		mat4 toOrigin(1, 0, 0, 0,
+			0, 1, 0, 0,
+			0, 0, 0, 0,
+			-9.5f, -9.5f , 0, 1);
+
+		mat4 MVPTransform = Mscale * Mtranslate * toOrigo * calcIncline * toOrigin * camera.V() * camera.P();
 
 		// set GPU uniform matrix variable MVP with the content of CPU variable MVPTransform
 		int location = glGetUniformLocation(shaderProgram, "MVP");
@@ -341,6 +395,12 @@ public:
 			0, 0, 1, 0,
 			0, 0, 0, 1);
 
+		float tilt = ratio == 0 ? 1 : 1 - ratio;
+		mat4 Tilt(1, 0, 0, 0,
+			0, tilt, 0, 0,
+			0, 0, 0, 0,
+			0, 0, 0, 1);
+
 		mat4 toOrigo(1, 0, 0, 0,
 			0, 1, 0, 0,
 			0, 0, 0, 0,
@@ -351,7 +411,7 @@ public:
 			0, 0, 0, 0,
 			newx, newy, 0, 1);
 
-			mat4 MVPTransform = Mscale * Mtranslate * toOrigo * Rotate * toOrigin * camera.V() * camera.P();
+			mat4 MVPTransform = Mscale * Mtranslate * toOrigo * Rotate * Tilt * toOrigin * camera.V() * camera.P();
 
 		// set GPU uniform matrix variable MVP with the content of CPU variable MVPTransform
 		int location = glGetUniformLocation(shaderProgram, "MVP");
@@ -490,7 +550,7 @@ public:
 		res.push_back(1); //g
 		res.push_back(1); //b
 		nRes++;
-		// copy data to the GPU
+
 		printf("Curve length: %f m.\n", length);
 		glBufferData(GL_ARRAY_BUFFER, nRes * 5 * sizeof(float), &res[0], GL_DYNAMIC_DRAW);
 	}
@@ -623,12 +683,18 @@ public:
 class Bicycle {
 	std::vector<Triangle> parts;
 	std::vector<long> timeStamps;
+	Triangle incline;
 	long startTime;
 	LagrangeCurve lagrangeCurve;
 	BezierSurface bezierSurface;
 	boolean started = false;
 	float colors[9] = { 0, 0, 1.0f, 0, 0, 0, 1.0f, 1.0f, 1.0f };
+	vec4 inclineLeft = vec4(-0.95f, -0.95f, 0, 1);
+	vec4 inclineHeight = vec4(-0.95f, -0.85f, 0, 1);
+	vec4 inclineRight = vec4(-0.85f, -0.95f, 0, 1);
+	float inclineColors[9] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 
+	float ratio;
 
 public:
 
@@ -658,15 +724,17 @@ public:
 		float y = curvePoints[1] / 10.0f;
 
 		front = vec4(x, y, 0, 1);
-		leftWing = vec4(x - 0.04f, y - 0.07f, 0, 1);
-		rightWing = vec4(x + 0.04f, y - 0.07f, 0, 1);
-		back = vec4(x, y - 0.04f, 0, 1);
+		leftWing = vec4(x - 0.1f, y - 0.2f, 0, 1);
+		rightWing = vec4(x + 0.1f, y - 0.2f, 0, 1);
+		back = vec4(x, y - 0.1f, 0, 1);
 
 		left.Create(front, leftWing, back, colors);
 		right.Create(front, rightWing, back, colors);
 
 		parts.push_back(left);
 		parts.push_back(right);
+
+		incline.Create(inclineLeft, inclineRight, inclineHeight, inclineColors);
 	}
 
 	void AddTime(long time) {
@@ -748,8 +816,8 @@ public:
 
 				float angle = CalculateAngle(curvePoints[0], curvePoints[1], curvePoints[0 + 5], curvePoints[1 + 5]);
 
-				parts[0].AnimateBycicle(oldx, oldy, oldx, oldy, angle);
-				parts[1].AnimateBycicle(oldx, oldy, oldx, oldy, angle);
+				parts[0].AnimateBycicle(oldx, oldy, oldx, oldy, angle, 1.0f);
+				parts[1].AnimateBycicle(oldx, oldy, oldx, oldy, angle, 1.0f);
 			}
 
 			if (index > 1 && index < (curvePoints.size() / 5) - 1) {
@@ -761,13 +829,23 @@ public:
 
 				float angle = CalculateAngle(newx, newy, curvePoints[(index + 1) * 5], curvePoints[(index + 1) * 5 + 1]);
 
-				float nextHeight = GetHeight(newx, newy);
-				float prevHeight = GetHeight(curvePoints[(index + 1) * 5], curvePoints[(index + 1) * 5 + 1]);
+				float currHeight = GetHeight(newx, newy);
+				float nextHeight = GetHeight(curvePoints[(index + 1) * 5], curvePoints[(index + 1) * 5 + 1]);
 
-				printf("previous: %f, next: %f\n", prevHeight, nextHeight);
+				float distance = sqrtf(pow(curvePoints[(index + 1) * 5] - newx, 2) + pow(curvePoints[(index + 1) * 5 + 1] - newy, 2));
 
-				parts[0].AnimateBycicle(oldx, oldy, newx, newy, angle);
-				parts[1].AnimateBycicle(oldx, oldy, newx, newy, angle);
+				float diff = abs(currHeight - nextHeight);		
+
+				boolean mirror = currHeight < nextHeight;
+
+				if ((diff / distance) > 0.01) {
+					ratio = (diff / distance);
+				}
+
+				incline.AnimateIncline(ratio, mirror);
+
+				parts[0].AnimateBycicle(oldx, oldy, newx, newy, angle, ratio);
+				parts[1].AnimateBycicle(oldx, oldy, newx, newy, angle, ratio);
 			} 
 		}
 	}
@@ -776,6 +854,7 @@ public:
 		if (started) {
 			parts[0].DrawBicycle();
 			parts[1].DrawBicycle();
+			incline.DrawIncline();
 		}
 	}
 };
