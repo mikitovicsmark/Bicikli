@@ -711,7 +711,25 @@ public:
 
 	float GetHeight(float x, float y) {
 		std::vector<vec4> surfacePoints = bezierSurface.GetSurfacePoints();
-		return x;
+
+		int column = (int)floor(x + 10.0f);
+		int row = (int)floor(10.0f - y);
+
+		vec4 topleft = surfacePoints[row * 21 + column];
+		vec4 topright = surfacePoints[row * 21 + column + 1];
+		vec4 bottomleft = surfacePoints[(row + 1) * 21 + column];
+		vec4 botttomright = surfacePoints[(row + 1) * 21 + column + 1];
+
+		float topleftDistance = sqrtf(pow(topleft.v[0] - x, 2) + pow(topleft.v[1] - y, 2));
+		float toprightDistance = sqrtf(pow(topright.v[0] - x, 2) + pow(topright.v[1] - y, 2));
+		float bottomleftDistance = sqrtf(pow(bottomleft.v[0] - x, 2) + pow(bottomleft.v[1] - y, 2));
+		float bottomrightDistance = sqrtf(pow(botttomright.v[0] - x, 2) + pow(botttomright.v[1] - y, 2));
+
+		float sumDistance = topleftDistance + toprightDistance + bottomleftDistance + bottomrightDistance;
+
+		float result = (topleftDistance*topleft.v[2] + toprightDistance*topright.v[2] + bottomleftDistance*bottomleft.v[2] + bottomrightDistance*botttomright.v[2]) / sumDistance;
+
+		return result;
 	}
 
 	void Animate(float t) {
@@ -743,7 +761,10 @@ public:
 
 				float angle = CalculateAngle(newx, newy, curvePoints[(index + 1) * 5], curvePoints[(index + 1) * 5 + 1]);
 
-				float kek = GetHeight(newx, newy);
+				float nextHeight = GetHeight(newx, newy);
+				float prevHeight = GetHeight(curvePoints[(index + 1) * 5], curvePoints[(index + 1) * 5 + 1]);
+
+				printf("previous: %f, next: %f\n", prevHeight, nextHeight);
 
 				parts[0].AnimateBycicle(oldx, oldy, newx, newy, angle);
 				parts[1].AnimateBycicle(oldx, oldy, newx, newy, angle);
